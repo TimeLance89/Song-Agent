@@ -335,14 +335,11 @@ Downloadable files with timestamps
 
 This is a complete, ready-to-use application. For modifications:
 
-1.
-Ensure all dependencies are installed
+1. Ensure all dependencies are installed
 
-2.
-Test changes locally before deployment
+2. Test changes locally before deployment
 
-3.
-Maintain the translation system for multi-language support
+3. Maintain the translation system for multi-language support
 
 📄 License
 
