@@ -6,6 +6,7 @@ KI Song-Agent – Automatische Songtext-Generierung mit Ollama + Suno API
 • Erstellt komplette Songs mit Suno API
 • Automatische Stilbeschreibung basierend auf Genre-Auswahl
 • Live-Anzeige der Stilbedeutung
+• Verbesserte visuelle Anzeige während der KI-Arbeit
 """
 
 import time
@@ -18,6 +19,11 @@ from datetime import datetime
 
 import requests
 import streamlit as st
+from enhanced_ui_components import (
+    show_enhanced_progress, 
+    create_completion_celebration,
+    get_genre_colors
+)
 
 # -------------------------------------------------------------------------
 # 0) Configuration Management
@@ -2243,9 +2249,9 @@ header {visibility: hidden;}
     width: 100%;
     height: 100%;
     background-image: 
-        radial-gradient(circle at 20% 80%, rgba(138, 43, 226, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 40% 40%, rgba(255, 107, 107, 0.05) 0%, transparent 50%);
+        radial-gradient(circle at 20% 80%, rgb(138, 43, 226) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgb(102, 126, 234) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgb(255, 107, 107) 0%, transparent 50%);
     pointer-events: none;
     z-index: -1;
 }
@@ -2273,71 +2279,116 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------------
-# 6) Genre-Auswahl mit Live-Anzeige
+# 6) UI-Zustandsverwaltung
 # -------------------------------------------------------------------------
-st.subheader(get_text("genre_selection"))
+# Initialisiere UI-Zustand
+if 'show_creation_interface' not in st.session_state:
+    st.session_state.show_creation_interface = False
 
-# Genre-Dropdown mit verbesserter Session State Verwaltung
-if 'genre_selector' not in st.session_state:
-    st.session_state.genre_selector = st.session_state.selected_genre
+# Zeige nur die Erstellungsoberfläche wenn Song erstellt wird
+if not st.session_state.show_creation_interface:
+    # -------------------------------------------------------------------------
+    # 7) Genre-Auswahl mit Live-Anzeige
+    # -------------------------------------------------------------------------
+    st.subheader(get_text("genre_selection"))
 
-selected_genre = st.selectbox(
-    get_text("choose_genre"),
-    options=list(GENRE_STYLES.keys()),
-    index=list(GENRE_STYLES.keys()).index(st.session_state.selected_genre),
-    key="genre_selector",
-    help=get_text("choose_genre")
-)
+    # Genre-Dropdown mit verbesserter Session State Verwaltung
+    if 'genre_selector' not in st.session_state:
+        st.session_state.genre_selector = st.session_state.selected_genre
 
-# Synchronisiere session state nur wenn sich die Auswahl geändert hat
-if selected_genre != st.session_state.selected_genre:
-    st.session_state.selected_genre = selected_genre
-
-# Live-Anzeige der Genre-Informationen
-st.markdown(f"### {get_text('live_style_preview')}")
-display_genre_info(selected_genre)
-
-# -------------------------------------------------------------------------
-# 7) Eingabeformular
-# -------------------------------------------------------------------------
-with st.form("song_generator_form"):
-    st.subheader(get_text("song_config"))
-    
-    # Zeige aktuell gewähltes Genre
-    st.info(f"{get_text('selected_genre')} **{selected_genre}**")
-    
-    # Instrumental Option
-    instrumental = st.checkbox(get_text("instrumental_only"), value=False)
-    
-    # Custom Style für Custom Genre
-    custom_style = ""
-    if selected_genre == "Custom":
-        custom_style = st.text_area(
-            get_text("custom_style_desc"),
-            height=100,
-            placeholder=get_text("custom_style_placeholder"),
-            help=get_text("custom_style_help")
-        )
-    
-    # Song-Beschreibung
-    song_description = st.text_area(
-        get_text("song_description"),
-        height=120,
-        placeholder=get_text("song_desc_placeholder"),
-        help=get_text("song_desc_help")
+    selected_genre = st.selectbox(
+        get_text("choose_genre"),
+        options=list(GENRE_STYLES.keys()),
+        index=list(GENRE_STYLES.keys()).index(st.session_state.selected_genre),
+        key="genre_selector",
+        help=get_text("choose_genre")
     )
+
+    # Synchronisiere session state nur wenn sich die Auswahl geändert hat
+    if selected_genre != st.session_state.selected_genre:
+        st.session_state.selected_genre = selected_genre
+
+    # Live-Anzeige der Genre-Informationen
+    st.markdown(f"### {get_text('live_style_preview')}")
+    display_genre_info(selected_genre)
+
+    # -------------------------------------------------------------------------
+    # 8) Eingabeformular
+    # -------------------------------------------------------------------------
+    with st.form("song_generator_form"):
+        st.subheader(get_text("song_config"))
+        
+        # Zeige aktuell gewähltes Genre
+        st.info(f"{get_text('selected_genre')} **{selected_genre}**")
+        
+        # Instrumental Option
+        instrumental = st.checkbox(get_text("instrumental_only"), value=False)
+        
+        # Custom Style für Custom Genre
+        custom_style = ""
+        if selected_genre == "Custom":
+            custom_style = st.text_area(
+                get_text("custom_style_desc"),
+                height=100,
+                placeholder=get_text("custom_style_placeholder"),
+                help=get_text("custom_style_help")
+            )
+        
+        # Song-Beschreibung
+        song_description = st.text_area(
+            get_text("song_description"),
+            height=120,
+            placeholder=get_text("song_desc_placeholder"),
+            help=get_text("song_desc_help")
+        )
+        
+        # Status-Info
+        if selected_genre != "Custom":
+            preview_style = get_style_description(selected_genre, custom_style)
+            st.markdown(f"""
+            <div class="live-style-display">
+                <h4>{get_text("generated_style")}</h4>
+                <p style="font-style: italic; margin: 0;">{preview_style}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        submitted = st.form_submit_button(get_text("create_song"), use_container_width=True)
+        
+        # Wenn Submit geklickt wird, wechsle zur Erstellungsoberfläche
+        if submitted:
+            # Speichere die Eingaben im Session State
+            st.session_state.creation_data = {
+                'selected_genre': selected_genre,
+                'instrumental': instrumental,
+                'custom_style': custom_style,
+                'song_description': song_description
+            }
+            st.session_state.show_creation_interface = True
+            st.rerun()
+
+else:
+    # -------------------------------------------------------------------------
+    # 9) Song-Erstellungsoberfläche
+    # -------------------------------------------------------------------------
+    # Hole die gespeicherten Daten
+    creation_data = st.session_state.get('creation_data', {})
+    selected_genre = creation_data.get('selected_genre', 'Deep House')
+    instrumental = creation_data.get('instrumental', False)
+    custom_style = creation_data.get('custom_style', '')
+    song_description = creation_data.get('song_description', '')
     
-    # Status-Info
-    if selected_genre != "Custom":
-        preview_style = get_style_description(selected_genre, custom_style)
-        st.markdown(f"""
-        <div class="live-style-display">
-            <h4>{get_text("generated_style")}</h4>
-            <p style="font-style: italic; margin: 0;">{preview_style}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # Zeige einen "Zurück" Button
+    if st.button("← Zurück zu den Einstellungen", key="back_button"):
+        st.session_state.show_creation_interface = False
+        st.rerun()
     
-    submitted = st.form_submit_button(get_text("create_song"), use_container_width=True)
+    st.markdown("---")
+    
+    # Zeige die aktuellen Einstellungen als Info
+    st.info(f"🎵 **Genre:** {selected_genre} | 🎤 **Instrumental:** {'Ja' if instrumental else 'Nein'}")
+    
+    # Setze submitted auf True für die nachfolgende Logik
+    submitted = True
 
 # -------------------------------------------------------------------------
 # 8) API‑Hilfsfunktionen (unverändert)
@@ -2412,18 +2463,49 @@ if submitted:
     # Generiere Stilbeschreibung basierend auf Genre
     style_description = get_style_description(selected_genre, custom_style)
 
-    # Phase 1: Lyrics generieren
+    # Phase 1: Lyrics generieren mit verbesserter visueller Anzeige
     st.markdown('<div class="generation-status">', unsafe_allow_html=True)
     st.subheader(get_text("generating_lyrics", genre=selected_genre))
     
-    with st.spinner(get_text("analyzing_desc", genre=selected_genre)):
-        lyrics, final_style = generate_lyrics_with_ollama(song_description, selected_genre, style_description)
+    # Erstelle Container für Lyrics-Generierung
+    lyrics_progress_container = st.empty()
     
-    if not lyrics:
-        st.error(get_text("lyrics_error"))
-        st.stop()
+    # Zeige Fortschritt für Lyrics-Generierung
+    with lyrics_progress_container.container():
+        show_enhanced_progress(
+            phase="🧠 KI analysiert Ihre Beschreibung...",
+            progress=25,
+            genre=selected_genre,
+            additional_info="Ollama AI verarbeitet Ihre Eingaben..."
+        )
     
-    st.success(get_text("lyrics_success", genre=selected_genre))
+    # Simuliere Fortschritt während der Lyrics-Generierung
+    time.sleep(1)
+    with lyrics_progress_container.container():
+        show_enhanced_progress(
+            phase="📝 Songtexte werden generiert...",
+            progress=75,
+            genre=selected_genre,
+            additional_info="Kreative Texte werden erstellt..."
+        )
+    
+    # Generiere tatsächlich die Lyrics
+    lyrics, final_style = generate_lyrics_with_ollama(song_description, selected_genre, style_description)
+    
+    # Zeige Fertigstellung der Lyrics-Generierung
+    with lyrics_progress_container.container():
+        if lyrics:
+            show_enhanced_progress(
+                phase="✅ Songtexte erfolgreich generiert!",
+                progress=100,
+                genre=selected_genre,
+                additional_info="Lyrics sind bereit für die Musikproduktion!"
+            )
+        else:
+            st.error(get_text("lyrics_error"))
+            st.stop()
+    
+    time.sleep(2)  # Kurze Pause für visuelle Wirkung
     
     # Zeige generierte Inhalte
     with st.expander(get_text("show_lyrics")):
@@ -2461,13 +2543,23 @@ if submitted:
         st.error(get_text("task_id_error"))
         st.stop()
 
-    # Polling
-    progress = st.progress(0, "Initialisiere Song-Generierung...")
+    # Verbesserte visuelle Anzeige während der Song-Erstellung
+    progress_container = st.empty()
     start = time.time()
     errors = 0
     audio_url = None
     tracks = []
 
+    # Definiere die Phasen für die visuelle Anzeige
+    phases = [
+        {"name": "🚀 Song-Auftrag wird verarbeitet...", "duration": 30},
+        {"name": "🎵 Musikkomposition wird erstellt...", "duration": 60},
+        {"name": "🎤 Vocals werden hinzugefügt...", "duration": 90},
+        {"name": "✨ Finalisierung und Mastering...", "duration": 120}
+    ]
+    
+    current_phase_index = 0
+    
     while True:
         if time.time() - start > TIMEOUT_HARD:
             st.error(get_text("timeout_error"))
@@ -2495,11 +2587,42 @@ if submitted:
                 audio_url = tracks[0].get("audioUrl") or tracks[0].get("audio_url")
             break
 
+        # Berechne Fortschritt und aktuelle Phase
+        elapsed = time.time() - start
+        total_progress = min(int(elapsed / 240 * 100), 95)
+        
+        # Bestimme aktuelle Phase basierend auf verstrichener Zeit
+        for i, phase in enumerate(phases):
+            if elapsed <= phase["duration"]:
+                current_phase_index = i
+                break
+        else:
+            current_phase_index = len(phases) - 1
+        
+        current_phase = phases[current_phase_index]["name"]
+        
+        # Zusätzliche Informationen basierend auf API-Status
         status_txt = (info.get("data", {}).get("status") or "...").upper()
-        prog = min(int((time.time() - start) / 240 * 100), 95)
-        progress.progress(prog, f"🎼 {status_txt} ({int(time.time()-start)} s)")
+        additional_info = f"API Status: {status_txt} | Verstrichene Zeit: {int(elapsed)}s"
+        
+        # Zeige verbesserte Fortschrittsanzeige
+        with progress_container.container():
+            show_enhanced_progress(
+                phase=current_phase,
+                progress=total_progress,
+                genre=selected_genre,
+                additional_info=additional_info
+            )
 
-    progress.progress(100, get_text("lyrics_success", genre=selected_genre).replace("lyrics", "song"))
+    # Zeige Fertigstellungs-Animation
+    with progress_container.container():
+        show_enhanced_progress(
+            phase="🎉 Song erfolgreich erstellt!",
+            progress=100,
+            genre=selected_genre,
+            additional_info="Ihr Song ist bereit zum Download!"
+        )
+        st.markdown(create_completion_celebration(selected_genre), unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Ergebnis anzeigen
@@ -2627,6 +2750,14 @@ Generated by AI Song Agent
             )
         
         st.success(get_text("song_created_success", genre=selected_genre))
+        
+        # Button zum Zurücksetzen der Oberfläche
+        st.markdown("---")
+        if st.button("🔄 Neuen Song erstellen", key="new_song_button", use_container_width=True):
+            st.session_state.show_creation_interface = False
+            if 'creation_data' in st.session_state:
+                del st.session_state.creation_data
+            st.rerun()
         
     except RuntimeError as e:
         st.error(get_text("download_error", error=e))
