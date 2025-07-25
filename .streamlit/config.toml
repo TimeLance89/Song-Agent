@@ -1,1 +1,22 @@
+[global]
+developmentMode = false
+language = "en"
+
+[server]
+headless = true
+port = 8501
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
+
+[ui]
+hideTopBar = true
+
+[theme]
+primaryColor = "#7b3fe4"
+backgroundColor = "#0d0d0d"
+secondaryBackgroundColor = "#1e1e1e"
+textColor = "#e0e0e0"
 
