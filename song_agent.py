@@ -2425,7 +2425,7 @@ else:
     st.info(f"🎵 **Genre:** {selected_genre} | 🎤 **Instrumental:** {'Ja' if instrumental else 'Nein'}")
     
     # Setze submitted auf True für die nachfolgende Logik
-    submitted = True
+    submitted = False # Set to False by default, only True if form is submitted
 
 # -------------------------------------------------------------------------
 # 8) API‑Hilfsfunktionen (unverändert)
