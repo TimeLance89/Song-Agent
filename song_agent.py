@@ -1900,7 +1900,7 @@ button[kind="header"] {
 .main .block-container {
     padding-top: 2rem;
     padding-bottom: 2rem;
-    max-width: 1200px;
+    max-width: 1600px; /* Increased width */
 }
 
 /* Glassmorphism card base */
