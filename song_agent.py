@@ -2408,24 +2408,29 @@ else:
     st.markdown('<div class="creation-interface">', unsafe_allow_html=True)
     
     # Hole die gespeicherten Daten
-    creation_data = st.session_state.get('creation_data', {})
-    selected_genre = creation_data.get('selected_genre', 'Deep House')
-    instrumental = creation_data.get('instrumental', False)
-    custom_style = creation_data.get('custom_style', '')
-    song_description = creation_data.get('song_description', '')
-    
+    creation_data = st.session_state.get("creation_data", {})
+    selected_genre = creation_data.get("selected_genre", "Deep House")
+    instrumental = creation_data.get("instrumental", False)
+    custom_style = creation_data.get("custom_style", "")
+    song_description = creation_data.get("song_description", "")
+
     # Zeige einen "Zurück" Button
     if st.button("← Zurück zu den Einstellungen", key="back_button"):
         st.session_state.show_creation_interface = False
         st.rerun()
-    
+
     st.markdown("---")
-    
+
     # Zeige die aktuellen Einstellungen als Info
-    st.info(f"🎵 **Genre:** {selected_genre} | 🎤 **Instrumental:** {'Ja' if instrumental else 'Nein'}")
-    
-    # Setze submitted auf True für die nachfolgende Logik
-    submitted = False # Set to False by default, only True if form is submitted
+    st.info(f"🎵 **Genre:** {selected_genre} | 🎤 **Instrumental:** {"Ja" if instrumental else "Nein"}")
+
+    # Setze submitted auf True für die nachfolgende Logik NUR wenn noch kein Song generiert wurde
+    # Dies verhindert eine erneute Generierung beim Download
+    if "song_generated" not in st.session_state:
+        submitted = True
+        st.session_state.song_generated = True
+    else:
+        submitted = False
 
 # -------------------------------------------------------------------------
 # 8) API‑Hilfsfunktionen (unverändert)
